@@ -16,7 +16,9 @@ exports.updateProject = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
+        // Access via _doc to bypass JS prototype 'constructor' reserved word shadowing
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
         const allowedFields = ['isPublicPost', 'status', 'title', 'description', 'wagePerDay', 'totalBudget', 'duration', 'totalDays', 'totalWorkers', 'requiredSkills', 'location', 'monthlyDuration'];
@@ -36,6 +38,10 @@ exports.updateProject = async (req, res) => {
 exports.createProject = async (req, res) => {
     try {
         req.body.constructor = req.user.id;
+        // Default to public post so workers can immediately see and apply!
+        if (req.body.isPublicPost === undefined) {
+             req.body.isPublicPost = true;
+        }
         const project = await Project.create(req.body);
         res.status(201).json({ success: true, data: project });
     } catch (error) {
@@ -122,11 +128,13 @@ exports.deleteProject = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
-            return res.status(401).json({ success: false, message: 'Not authorized' });
+        // Access via _doc to bypass JS prototype 'constructor' reserved word shadowing
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
+            return res.status(401).json({ success: false, message: 'Not authorized to delete this project' });
         }
         await Project.findByIdAndDelete(req.params.id);
-        // Also clean up applications and work logs
+        // Also clean up all associated data
         await ProjectApplication.deleteMany({ projectId: req.params.id });
         await DailyWorkLog.deleteMany({ projectId: req.params.id });
         res.status(200).json({ success: true, message: 'Project deleted successfully' });
@@ -142,11 +150,14 @@ exports.getApplicants = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
+        // Access via _doc to bypass JS prototype 'constructor' reserved word shadowing
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
         const applications = await ProjectApplication.find({ projectId: req.params.id })
-            .populate('workerId', 'name profileImage skills averageRating completedJobs location');
+            .populate('workerId', 'name profileImage skills averageRating completedJobs location')
+            .sort({ appliedAt: -1 });
         res.status(200).json({ success: true, count: applications.length, data: applications });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -161,7 +172,9 @@ exports.assignWorker = async (req, res) => {
         const { projectId, workerId } = req.body;
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
+        // Safe field access — use _doc to bypass JS 'constructor' reserved word prototype shadowing
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
         if (project.assignedWorkers.map(w => w.toString()).includes(workerId)) {
@@ -191,7 +204,8 @@ exports.requestWorker = async (req, res) => {
         const { projectId, workerId } = req.body;
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
 
@@ -213,49 +227,102 @@ exports.requestWorker = async (req, res) => {
     }
 };
 
-// @desc    Update project status / complete
+// @desc    Update project status / complete with wage settlement
 // @route   POST /api/projects/complete
 // @access  Private (Constructor Only)
 exports.completeProject = async (req, res) => {
     try {
-        const { projectId, images, rating, comment } = req.body;
-        const project = await Project.findById(projectId);
-        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
+        const { projectId, rating, comment } = req.body;
+        const project = await Project.findById(projectId).populate('assignedWorkers');
+
+        if (!project) {
+            return res.status(404).json({ success: false, message: 'Project not found' });
+        }
+
+        // Verify constructor — use _doc to bypass JS 'constructor' reserved word prototype shadowing
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
 
+        if (project.status === 'completed') {
+            return res.status(400).json({ success: false, message: 'Project is already completed' });
+        }
+
+        // Calculate remaining wages
+        const remainingDays = Math.max(0, project.totalDays - project.completedDays);
+        const assignedWorkersCount = project.assignedWorkers.length;
+        const dailyWage = project.wagePerDay || 0;
+        const totalPayout = remainingDays * dailyWage * assignedWorkersCount;
+
+        // Perform wallet transfers
+        const constructorUser = await User.findById(req.user.id);
+        
+        // Deduction from constructor
+        constructorUser.wallet.balance -= totalPayout;
+        await constructorUser.save();
+
+        // Credit each worker
+        for (const workerId of project.assignedWorkers) {
+            const workerUser = await User.findById(workerId);
+            if (!workerUser) continue;
+            
+            const workerPayout = remainingDays * dailyWage;
+            workerUser.wallet.balance += workerPayout;
+            workerUser.completedJobs += 1;
+            
+            // Adjust rating if provided
+            if (rating) {
+                workerUser.averageRating = ((workerUser.averageRating * (workerUser.completedJobs - 1)) + rating) / workerUser.completedJobs;
+            }
+            
+            await workerUser.save();
+
+            // Transaction for worker
+            await Transaction.create({
+                userId: workerId,
+                amount: workerPayout,
+                type: 'credit',
+                status: 'completed',
+                relatedTo: project._id,
+                onModel: 'Project',
+                description: `Final payout for project: ${project.title}`
+            });
+        }
+
+        // Transaction for constructor
+        if (totalPayout > 0) {
+            await Transaction.create({
+                userId: req.user.id,
+                amount: totalPayout,
+                type: 'debit',
+                status: 'completed',
+                relatedTo: project._id,
+                onModel: 'Project',
+                description: `Settlement for project completion: ${project.title}`
+            });
+        }
+
+        // Update Project status
         project.status = 'completed';
         project.completedDays = project.totalDays;
         await project.save();
 
-        const historyPromises = project.assignedWorkers.map(async (workerId) => {
-            const entry = await WorkHistory.create({
-                workerId,
-                title: project.title,
-                description: project.description,
-                images: images || [],
-                rating,
-                comment,
-                projectId: project._id
-            });
-            const worker = await User.findById(workerId);
-            if (worker) {
-                worker.completedJobs += 1;
-                if (rating) {
-                    worker.averageRating = ((worker.averageRating * (worker.completedJobs - 1)) + rating) / worker.completedJobs;
+        res.status(200).json({
+            success: true,
+            message: 'Project completed and wages settled successfully',
+            data: {
+                project,
+                payoutDetails: {
+                    totalPayout,
+                    remainingDays,
+                    workersPaid: assignedWorkersCount
                 }
-                if (worker.averageRating >= 4.5 && !worker.badges.includes('Top Rated')) worker.badges.push('Top Rated');
-                if (worker.completedJobs >= 5 && !worker.badges.includes('Experienced')) worker.badges.push('Experienced');
-                if (images && images.length > 0 && !worker.badges.includes('Verified')) worker.badges.push('Verified');
-                await worker.save();
             }
-            return entry;
         });
 
-        const workHistories = await Promise.all(historyPromises);
-        res.status(200).json({ success: true, message: 'Project completed', data: workHistories });
     } catch (error) {
+        console.error("Completion error:", error);
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -414,12 +481,53 @@ exports.updateProgress = async (req, res) => {
         const { projectId, completedDays } = req.body;
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-        if (project.constructor.toString() !== req.user.id) {
+        const ownerId = project._doc['constructor']?.toString();
+        if (ownerId !== req.user.id) {
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
         project.completedDays = completedDays;
         await project.save();
         res.status(200).json({ success: true, data: project });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Worker accepts or rejects a project invitation
+// @route   PUT /api/projects/application/:id
+// @access  Private (Worker Only)
+exports.updateProjectApplicationStatus = async (req, res) => {
+    try {
+        const { status } = req.body; // 'accepted' or 'rejected'
+        const application = await ProjectApplication.findById(req.params.id);
+
+        if (!application) {
+            return res.status(404).json({ success: false, message: 'Application not found' });
+        }
+
+        // Verify worker
+        if (application.workerId.toString() !== req.user.id) {
+            return res.status(401).json({ success: false, message: 'Not authorized' });
+        }
+
+        application.status = status;
+        await application.save();
+
+        // If accepted, add worker to project
+        if (status === 'accepted') {
+            const project = await Project.findById(application.projectId);
+            if (!project.assignedWorkers.includes(req.user.id)) {
+                project.assignedWorkers.push(req.user.id);
+                if (project.status === 'open') project.status = 'in-progress';
+                await project.save();
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Invitation ${status} successfully`,
+            data: application
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }

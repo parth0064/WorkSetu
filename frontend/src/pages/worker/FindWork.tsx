@@ -9,9 +9,10 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { getJobs, getJobRequests, updateJobRequestStatus, applyForJob } from "@/services/jobService";
-import { getAllProjects, applyToProject, getMyApplications } from "@/services/projectService";
+import { getAllProjects, applyToProject, getMyApplications, updateProjectApplicationStatus } from "@/services/projectService";
 import ApplyConfirmationModal from "@/components/shared/ApplyConfirmationModal";
 import { useNavigate } from "react-router-dom";
+import JobMap from "./JobMap";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
@@ -64,10 +65,17 @@ const FindWork = () => {
     fetchProjectData();
   }, []);
 
-  const filteredJobs = jobs.filter(j =>
-    j.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    j.skillRequired.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredJobs = jobs.filter(j => {
+    const term = searchTerm.toLowerCase();
+    const locationStr = typeof j.location === 'object'
+      ? (j.location?.address || '')
+      : (j.location || '');
+    return (
+      j.title.toLowerCase().includes(term) ||
+      j.skillRequired.toLowerCase().includes(term) ||
+      locationStr.toLowerCase().includes(term)
+    );
+  });
 
   const filteredProjects = projects.filter(p =>
     p.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
@@ -100,13 +108,18 @@ const FindWork = () => {
     }
   };
 
-  const handleUpdateRequest = async (id: string, status: "accepted" | "rejected") => {
+  const handleUpdateRequest = async (id: string, status: "accepted" | "rejected", type: "job" | "project" = "job") => {
     try {
-      await updateJobRequestStatus(id, status);
-      toast.success(`Request ${status} successfully!`);
+      if (type === "project") {
+        await updateProjectApplicationStatus(id, status);
+      } else {
+        await updateJobRequestStatus(id, status);
+      }
+      toast.success(`${type === 'project' ? 'Project invite' : 'Job request'} ${status} successfully!`);
       fetchJobData();
-    } catch {
-      toast.error("Failed to update request");
+      fetchProjectData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update request");
     }
   };
 
@@ -175,77 +188,59 @@ const FindWork = () => {
 
           {/* ── NEARBY TAB ── */}
           <TabsContent value="nearby" className="space-y-6">
-            <div className="glass-card p-0 overflow-hidden border border-border/50 shadow-xl relative min-h-[500px] flex items-center justify-center bg-slate-100 dark:bg-slate-900">
-              <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1" />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-              <div className="relative w-full h-full p-8 flex flex-wrap gap-12 items-center justify-center">
-                {jobs.slice(0, 5).map((j, idx) => (
-                  <motion.div
-                    key={j._id}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: idx * 0.1 }}
-                    className="relative"
-                  >
-                    <div
-                      onClick={() => setSelectedJob(j)}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center cursor-pointer shadow-xl transition-all hover:scale-110 active:scale-95 border-2 ${
-                        selectedJob?._id === j._id ? "bg-primary text-primary-foreground border-white" : "bg-white text-primary border-primary"
-                      }`}
-                    >
-                      <MapPin size={24} />
-                    </div>
-                    {selectedJob?._id === j._id && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute bottom-16 left-1/2 -translate-x-1/2 w-48 glass-card p-3 z-50 shadow-2xl border-primary animate-in fade-in slide-in-from-bottom-2"
-                      >
-                        <h4 className="font-bold text-xs truncate mb-1">{j.title}</h4>
-                        <p className="text-[10px] text-muted-foreground mb-2">₹{j.wage} • {j.location}</p>
-                        <Button size="sm" onClick={() => handleApplyClick(j._id, j.title)} className="w-full h-7 text-[10px] font-bold">Apply Now</Button>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-              <div className="absolute top-4 left-4 glass-card px-4 py-2 text-xs font-bold flex items-center gap-2 shadow-lg">
-                <Navigation size={14} className="text-primary animate-pulse" />
-                Showing jobs near {user?.location || "your location"}
-              </div>
-            </div>
+            <JobMap />
           </TabsContent>
 
           {/* ── JOBS TAB ── */}
           <TabsContent value="recommended" className="space-y-6">
+            {/* Info banner explaining the two location modes */}
+            <div className="flex items-start gap-3 bg-secondary/40 border border-border/60 rounded-xl px-4 py-3">
+              <div className="flex gap-2 mt-0.5 shrink-0">
+                <MapPin size={14} className="text-warning" />
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <span className="font-bold text-foreground">All jobs appear here.</span>{" "}
+                Jobs marked <span className="font-bold text-warning">📍 Manual Location</span> were posted without GPS — find them here and apply directly.{" "}
+                Jobs posted via GPS also show up on the{" "}
+                <span className="font-bold text-foreground">Nearby</span> map tab.
+              </p>
+            </div>
+
             <motion.div variants={item} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredJobs.length > 0 ? filteredJobs.map((j) => (
-                <JobCard
-                  key={j._id}
-                  title={j.title}
-                  location={j.location}
-                  budget={`₹${j.wage}`}
-                  duration={j.duration}
-                  tags={[j.skillRequired]}
-                  postedAgo={new Date(j.createdAt).toLocaleDateString()}
-                  postedBy={j.postedBy?.name}
-                  urgent={j.isUrgent}
-                  status={j.status}
-                  paymentStatus={j.paymentStatus}
-                  onClick={() => handleApplyClick(j._id, j.title)}
-                />
-              )) : (
+              {filteredJobs.length > 0 ? filteredJobs.map((j) => {
+                const hasCoords = Array.isArray(j.location?.coordinates) && j.location.coordinates.length === 2;
+                const locationText = typeof j.location === 'object'
+                  ? (j.location?.address || 'Location Hidden')
+                  : (j.location || 'Location Hidden');
+                return (
+                  <div key={j._id} className="relative">
+                    {/* Manual location badge */}
+                    {!hasCoords && (
+                      <div className="absolute -top-2 -right-2 z-10 flex items-center gap-1 bg-warning/15 border border-warning/30 text-warning rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
+                        <MapPin size={8} />
+                        Manual
+                      </div>
+                    )}
+                    <JobCard
+                      title={j.title}
+                      location={locationText}
+                      budget={`₹${j.wage}`}
+                      duration={j.duration}
+                      tags={[j.skillRequired]}
+                      postedAgo={new Date(j.createdAt).toLocaleDateString()}
+                      postedBy={j.postedBy?.name}
+                      urgent={j.isUrgent}
+                      status={j.status}
+                      paymentStatus={j.paymentStatus}
+                      onClick={() => handleApplyClick(j._id, j.title)}
+                    />
+                  </div>
+                );
+              }) : (
                 <div className="col-span-full py-20 text-center text-muted-foreground glass-card border-dashed">
                   <Search size={48} className="mx-auto mb-4 opacity-20" />
-                  <p className="font-bold text-lg">No jobs found matching your skills.</p>
+                  <p className="font-bold text-lg">No jobs found matching your search.</p>
+                  <p className="text-sm mt-1 opacity-70">Try searching by job title, skill, or city name.</p>
                 </div>
               )}
             </motion.div>
@@ -362,29 +357,33 @@ const FindWork = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-xl font-bold">{req.job?.title || "Direct Offer"}</h3>
-                        <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-md">Direct Invite</span>
+                        <h3 className="text-xl font-bold">{req.job?.title || req.title || "Direct Offer"}</h3>
+                        <span className={`px-2 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-md ${req.type === 'project' ? 'bg-amber-100 text-amber-600' : 'bg-primary/10 text-primary'}`}>
+                          {req.type === 'project' ? 'Professional Project' : 'One-off Job'}
+                        </span>
                       </div>
                       <p className="text-sm text-muted-foreground flex items-center gap-1.5 font-medium">
-                        <User size={14} className="text-primary/70" /> {req.sender?.name || "Client"}
+                        <User size={14} className="text-primary/70" /> {req.sender?.name || req.clientId?.name || "Client"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-black text-primary">₹{req.job?.wage || 0}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{req.job?.location || "N/A"}</p>
+                      <p className="text-2xl font-black text-primary">₹{req.job?.wage || req.wage || 0}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                         {req.job?.location && typeof req.job.location === 'object' ? req.job.location.address : (req.job?.location || req.location || "N/A")}
+                      </p>
                     </div>
                   </div>
 
                   {req.status === "pending" ? (
                     <div className="flex gap-3 mt-6">
                       <Button
-                        onClick={() => handleUpdateRequest(req._id, "accepted")}
+                        onClick={() => handleUpdateRequest(req._id, "accepted", req.type)}
                         className="flex-1 font-bold h-11 shadow-lg shadow-success/10 bg-success hover:bg-success/90 text-white"
                       >
                         <Check size={18} className="mr-2" /> Accept
                       </Button>
                       <Button
-                        onClick={() => handleUpdateRequest(req._id, "rejected")}
+                        onClick={() => handleUpdateRequest(req._id, "rejected", req.type)}
                         variant="outline"
                         className="flex-1 font-bold h-11 border-destructive/30 text-destructive hover:bg-destructive/5 hover:border-destructive"
                       >

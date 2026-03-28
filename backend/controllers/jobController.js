@@ -1,7 +1,9 @@
 const Job = require('../models/Job');
+const Project = require('../models/Project');
 const User = require('../models/User');
 const WorkHistory = require('../models/WorkHistory');
 const JobRequest = require('../models/JobRequest');
+const ProjectApplication = require('../models/ProjectApplication');
 const Notification = require('../models/Notification');
 
 // @desc    Create new job
@@ -10,6 +12,43 @@ const Notification = require('../models/Notification');
 exports.createJob = async (req, res, next) => {
     try {
         req.body.postedBy = req.user.id;
+
+        // Map location gracefully — three supported formats from frontend:
+        //  1. Pre-built GeoJSON { type:'Point', coordinates:[lng,lat], address } — new GPS path
+        //  2. Raw { lat, lng, address }                                          — legacy GPS path
+        //  3. Plain string "Mumbai, Maharashtra"                                 — manual fallback
+        let locationData = { address: '' };
+
+        const loc = req.body.location;
+        if (loc && typeof loc === 'object') {
+            if (Array.isArray(loc.coordinates) && loc.coordinates.length === 2) {
+                // Case 1: pre-built GeoJSON from new PostJobPage
+                locationData = {
+                    type: 'Point',
+                    coordinates: loc.coordinates, // already [lng, lat]
+                    address: loc.address || 'Unknown Address'
+                };
+            } else if (loc.lat !== undefined && loc.lng !== undefined) {
+                // Case 2: legacy { lat, lng } object
+                locationData = {
+                    type: 'Point',
+                    coordinates: [loc.lng, loc.lat],
+                    address: loc.address || 'Unknown Address'
+                };
+            } else if (loc.address) {
+                // Case 3a: object with only address (manual via object)
+                locationData = { address: loc.address };
+            }
+        } else if (typeof loc === 'string') {
+            // Case 3b: plain string manual fallback — no coordinates stored.
+            // These jobs will NOT appear in geo/nearby queries but ARE discoverable
+            // in the general Jobs list tab on the worker dashboard.
+            locationData = { address: loc };
+        }
+        
+        // Apply transformed location
+        const originalLocation = req.body.location;
+        req.body.location = locationData;
 
         const job = await Job.create(req.body);
 
@@ -22,6 +61,66 @@ exports.createJob = async (req, res, next) => {
             success: false,
             message: error.message
         });
+    }
+};
+
+// @desc    Get nearby open jobs & projects
+// @route   GET /api/jobs/nearby
+// @access  Public
+exports.getNearbyJobs = async (req, res, next) => {
+    try {
+        const { lat, lng, radius = 50 } = req.query; // Default 50km radius for discovery
+
+        if (!lat || !lng) {
+             return res.status(400).json({ success: false, message: 'Please provide latitude and longitude' });
+        }
+
+        const distanceInMeters = radius * 1000;
+
+        // 1. Fetch Jobs
+        let jobs = await Job.find({
+            status: 'open',
+            location: {
+                $nearSphere: {
+                    $geometry: {
+                        type: 'Point',
+                        coordinates: [parseFloat(lng), parseFloat(lat)]
+                    },
+                    $maxDistance: distanceInMeters
+                }
+            }
+        }).populate('postedBy', 'name location profileImage');
+        
+        // 2. Fetch Projects (Long term)
+        let projects = await Project.find({ isPublicPost: true, status: 'open' })
+            .populate('constructor', 'name profileImage');
+
+        const transformedProjects = projects.map(p => ({
+            _id: p._id,
+            title: p.title,
+            description: p.description,
+            wage: p.wagePerDay,
+            location: { address: p.location },
+            type: 'project',
+            status: p.status,
+            postedBy: p.constructor
+        }));
+
+        const transformedJobs = jobs.map(j => ({
+            ...j.toObject(),
+            type: 'job'
+        }));
+
+        const unifiedData = [...transformedJobs, ...transformedProjects];
+
+        res.status(200).json({
+             success: true,
+             count: unifiedData.length,
+             data: unifiedData
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 
@@ -267,20 +366,46 @@ exports.getJobById = async (req, res) => {
     }
 };
 
-// @desc    Get job requests for worker
+// @desc    Get job & project requests (Invites) for worker
 // @route   GET /api/jobs/requests
 // @access  Private (Worker Only)
 exports.getJobRequests = async (req, res, next) => {
     try {
-        const requests = await JobRequest.find({ 
+        // 1. Standard Job Requests
+        const jobRequests = await JobRequest.find({ 
             workerId: req.user.id,
             status: 'pending'
         }).populate('clientId', 'name phone email');
 
+        // 2. Project Invitations (Constructor requests)
+        const projectInvites = await ProjectApplication.find({
+            workerId: req.user.id,
+            status: 'pending',
+            message: 'Direct invite from constructor' // Distinguish from worker applications
+        }).populate('projectId', 'title description wagePerDay location duration');
+
+        // Transform Project Invites to match request format
+        const unifiedInvites = projectInvites.map(inv => ({
+            _id: inv._id,
+            jobId: inv.projectId._id,
+            title: inv.projectId.title,
+            clientId: { name: 'Constructor Invite' },
+            type: 'project',
+            status: inv.status,
+            createdAt: inv.createdAt
+        }));
+
+        const unifiedJobRequests = jobRequests.map(req => ({
+             ...req.toObject(),
+             type: 'job'
+        }));
+
+        const finalRequests = [...unifiedJobRequests, ...unifiedInvites];
+
         res.status(200).json({
             success: true,
-            count: requests.length,
-            data: requests
+            count: finalRequests.length,
+            data: finalRequests
         });
     } catch (error) {
         res.status(400).json({
@@ -357,5 +482,3 @@ exports.getMyAssignedJobs = async (req, res, next) => {
         });
     }
 };
-
-

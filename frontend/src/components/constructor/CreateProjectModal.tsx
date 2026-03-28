@@ -38,7 +38,7 @@ const CreateProjectModal = ({ open, onClose, onCreated }: Props) => {
     totalDays: 30,
     wagePerDay: 0,
     totalBudget: 0,
-    isPublicPost: false,
+    isPublicPost: true,
   });
 
   // Step 2 state
@@ -55,7 +55,7 @@ const CreateProjectModal = ({ open, onClose, onCreated }: Props) => {
     setForm({
       title: "", description: "", requiredSkills: [], location: "",
       duration: "", monthlyDuration: "", totalWorkers: 1, totalDays: 30,
-      wagePerDay: 0, totalBudget: 0, isPublicPost: false,
+      wagePerDay: 0, totalBudget: 0, isPublicPost: true,
     });
     setCreatedProject(null);
     setRequestedWorkers([]);
@@ -106,19 +106,24 @@ const CreateProjectModal = ({ open, onClose, onCreated }: Props) => {
     }
   };
 
-  const handleSelectRequestMode = () => {
+  const handleSelectRequestMode = async () => {
     setMode("request");
     loadWorkers();
+    // Ensure it remains public even if we are also requesting specific workers!
+    if (createdProject?._id && !createdProject.isPublicPost) {
+       try { await updateProject(createdProject._id, { isPublicPost: true }); } catch(e){}
+    }
   };
 
   const handleSelectPublicMode = async () => {
     setMode("public");
     setSaving(true);
     try {
+      // It should already be true from Step 1, but let's confirm
       if (createdProject?._id) {
          await updateProject(createdProject._id, { isPublicPost: true });
       }
-      toast.success("🌐 Project is now live! Workers can discover and apply.");
+      toast.success("🌐 Project is Live! Workers can now find and apply.");
     } catch {
       toast.success("🌐 Project published successfully.");
     } finally {

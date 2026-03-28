@@ -14,8 +14,18 @@ const jobSchema = new mongoose.Schema({
         required: [true, 'Please add required skill']
     },
     location: {
-        type: String,
-        required: [true, 'Please add a location']
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number] // [longitude, latitude]
+        },
+        address: {
+            type: String,
+            required: [true, 'Please add a location address']
+        }
     },
     duration: {
         type: String,
@@ -72,5 +82,9 @@ const jobSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+// Sparse 2dsphere index — only indexes jobs that have real coordinates.
+// Jobs posted with manual text location (no coordinates) are safely excluded.
+jobSchema.index({ "location.coordinates": '2dsphere' }, { sparse: true });
 
 module.exports = mongoose.model('Job', jobSchema);

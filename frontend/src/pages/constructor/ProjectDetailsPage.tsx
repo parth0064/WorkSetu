@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { getProjectById, getProjectApplicants, assignWorker } from "@/services/projectService";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import api from "@/services/api";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
@@ -28,18 +29,28 @@ const ProjectDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"workers" | "applicants">("workers");
   const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [applicantsError, setApplicantsError] = useState<string | null>(null);
 
   const fetchAll = async () => {
     if (!id) return;
     try {
-      const [projRes, appRes] = await Promise.all([
-        getProjectById(id),
-        getProjectApplicants(id).catch(() => ({ data: [] }))
-      ]);
+      const projRes = await getProjectById(id);
       setProject(projRes.data);
-      setApplicants(appRes.data || []);
+      
+      try {
+        const appRes = await getProjectApplicants(id);
+        setApplicants(appRes.data || []);
+        setApplicantsError(null);
+      } catch (appErr: any) {
+        const msg = appErr?.response?.data?.message || appErr?.message || 'Unknown error';
+        setApplicantsError(msg);
+        setApplicants([]);
+        console.error('Applicants fetch error:', msg);
+      }
     } catch {
-      toast.error("Failed to load project");
+      toast.error('Failed to load project');
     } finally {
       setLoading(false);
     }
@@ -47,17 +58,32 @@ const ProjectDetailsPage = () => {
 
   useEffect(() => { fetchAll(); }, [id]);
 
-  const handleAssign = async (workerId: string, workerName: string, applicationId?: string) => {
+  const handleAssign = async (workerId: string, workerName: string) => {
     if (!id) return;
     setAssigningId(workerId);
     try {
       await assignWorker(id, workerId);
       toast.success(`✅ ${workerName} assigned to project!`);
-      fetchAll(); // Refresh
+      fetchAll();
     } catch (err: any) {
-      toast.error(err?.message || "Assignment failed");
+      toast.error(err?.response?.data?.message || err?.message || 'Assignment failed');
     } finally {
       setAssigningId(null);
+    }
+  };
+
+  const handleCompleteProject = async () => {
+    if (!id) return;
+    setCompleting(true);
+    try {
+      await api.post('/projects/complete', { projectId: id });
+      toast.success("🏆 Project Completed!", { description: "Remaining wages have been settled." });
+      setShowCompleteModal(false);
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Completion failed");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -115,9 +141,21 @@ const ProjectDetailsPage = () => {
             </span>
           </div>
         </div>
-        <div className="z-10 shrink-0 bg-primary/10 border border-primary/20 rounded-2xl px-6 py-4 text-center">
-          <p className="text-3xl font-black text-primary">{progress}%</p>
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Complete</p>
+        <div className="z-10 shrink-0">
+          {project.status === 'completed' ? (
+            <div className="bg-success/10 border border-success/20 rounded-2xl px-6 py-4 text-center">
+              <CheckCircle2 size={32} className="text-success mx-auto mb-1" />
+              <p className="text-xs font-black text-success uppercase tracking-widest">Fully Paid</p>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setShowCompleteModal(true)}
+              className="h-auto py-4 px-6 rounded-2xl gradient-primary border-0 shadow-lg hover:scale-105 transition-all flex flex-col items-center gap-1"
+            >
+              <CheckCircle2 size={24} className="opacity-90" />
+              <span className="text-xs uppercase font-black opacity-90 tracking-widest">Project Finish</span>
+            </Button>
+          )}
         </div>
       </motion.div>
 
@@ -199,11 +237,21 @@ const ProjectDetailsPage = () => {
         {/* Applicants */}
         {tab === "applicants" && (
           <div className="space-y-3">
-            {applicants.length === 0 ? (
+            {/* Show error state if applicants failed to load */}
+            {applicantsError ? (
+              <div className="glass-card p-8 text-center border-destructive/30 bg-destructive/5">
+                <Briefcase size={36} className="mx-auto mb-3 text-destructive opacity-60" />
+                <p className="font-bold text-destructive mb-1">Could not load applicants</p>
+                <p className="text-xs text-muted-foreground mb-4">{applicantsError}</p>
+                <Button size="sm" variant="outline" onClick={fetchAll} className="rounded-xl font-bold">
+                  Try Again
+                </Button>
+              </div>
+            ) : applicants.length === 0 ? (
               <div className="glass-card p-10 text-center border-dashed">
                 <Briefcase size={40} className="mx-auto mb-3 opacity-20" />
                 <p className="text-muted-foreground font-medium">No applications yet.</p>
-                <p className="text-xs text-muted-foreground mt-1">Make the project public to receive applications.</p>
+                <p className="text-xs text-muted-foreground mt-1">Make the project public to receive applications from workers.</p>
               </div>
             ) : (
               applicants.map((app: any) => {
@@ -246,6 +294,66 @@ const ProjectDetailsPage = () => {
           </div>
         )}
       </motion.div>
+
+      {/* Completion Modal */}
+      <AnimatePresence>
+        {showCompleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-card max-w-md w-full p-8 space-y-6 shadow-2xl border-primary/20"
+            >
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
+                   <Wallet size={32} />
+                </div>
+                <h3 className="text-2xl font-black italic">Final Settlement</h3>
+                <p className="text-muted-foreground text-sm">
+                  Are you sure you want to complete this project? The following wages will be settled from your wallet:
+                </p>
+              </div>
+
+              <div className="bg-secondary/40 rounded-2xl p-4 space-y-3 font-medium text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Remaining Days:</span>
+                  <span className="font-bold">{Math.max(0, project.totalDays - project.completedDays)} days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Workers Assigned:</span>
+                  <span className="font-bold">{project.assignedWorkers?.length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Daily Wage:</span>
+                  <span className="font-bold">₹{project.wagePerDay}</span>
+                </div>
+                <div className="border-t border-border pt-3 flex justify-between text-lg font-black text-primary">
+                  <span>Total Payout:</span>
+                  <span>₹{Math.max(0, (project.totalDays - project.completedDays) * project.wagePerDay * (project.assignedWorkers?.length || 0))}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 rounded-xl font-bold"
+                  onClick={() => setShowCompleteModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 h-12 rounded-xl font-bold gradient-primary"
+                  onClick={handleCompleteProject}
+                  disabled={completing}
+                >
+                  {completing ? <Loader2 size={18} className="animate-spin" /> : "Verify & Pay"}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
