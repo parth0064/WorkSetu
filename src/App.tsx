@@ -26,6 +26,7 @@ import AddWork from "./pages/worker/AddWork";
 import WorkerProfile from "./pages/worker/WorkerProfile";
 import EarningsExpenses from "./pages/worker/EarningsExpenses";
 import MyPortfolio from "./pages/worker/MyPortfolio";
+import WorkerProjectDetail from "./pages/worker/WorkerProjectDetail";
 
 // Client Pages
 import ClientHome from "./pages/client/ClientHome";
@@ -72,6 +73,7 @@ const App = () => (
                   <Route path="profile" element={<WorkerProfile />} />
                   <Route path="wallet" element={<WalletPage />} />
                   <Route path="finances" element={<EarningsExpenses />} />
+                  <Route path="projects/:id" element={<WorkerProjectDetail />} />
                 </Route>
 
                 {/* Client (Homeowner) Routes */}

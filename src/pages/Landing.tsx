@@ -126,7 +126,7 @@ const Landing = () => {
             >
               <Button
                 size="lg"
-                onClick={() => navigate("/signup")}
+                onClick={() => navigate("/login")}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-10 py-7 text-xl rounded-2xl font-bold gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl relative overflow-hidden group"
               >
                 <div className="absolute inset-0 bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left ease-out duration-300" />
@@ -262,7 +262,7 @@ const Landing = () => {
               <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">{t("tagline")}</p>
               <Button
                 size="lg"
-                onClick={() => navigate("/signup")}
+                onClick={() => navigate("/login")}
                 className="gradient-primary text-primary-foreground px-10 py-6 text-lg rounded-xl font-semibold gap-2 hover:opacity-90 transition-all hover:scale-[1.02] border-0"
               >
                 {t("getStarted")} <ArrowRight size={20} />

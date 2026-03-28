@@ -25,7 +25,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const { lang, setLang, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -52,6 +52,12 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   };
 
   useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login');
+    }
+  }, [loading, user, navigate]);
+
+  useEffect(() => {
     fetchBalance();
     fetchNotifications();
     
@@ -61,6 +67,10 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
     }, 30000); 
     return () => clearInterval(interval);
   }, [user?.id]); 
+
+  if (loading || !user) {
+    return null;
+  }
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -115,7 +125,11 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const NavItems = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="space-y-2 mt-4">
       {nav.map((item) => {
-        const active = location.pathname === item.path;
+        // Use startsWith for non-root paths so sub-routes (e.g. /projects/:id) keep parent highlighted
+        const isRoot = item.path === `/dashboard/${role}`;
+        const active = isRoot
+          ? location.pathname === item.path
+          : location.pathname.startsWith(item.path);
         return (
           <button
             key={item.path}
