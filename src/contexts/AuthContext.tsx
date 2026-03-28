@@ -3,24 +3,39 @@ import api from '../services/api';
 
 interface User {
   id: string;
+  _id?: string;       // Mongo also sends _id; alias of id
   name: string;
   email: string;
   role: 'worker' | 'user' | 'constructor';
+  language?: string;
   skills?: string[];
   completedJobs?: number;
   averageRating?: number;
+  // Structured rating from new schema
+  rating?: {
+    average: number;
+    totalReviews: number;
+  };
+  points?: number;
+  hype?: number;
+  score?: number;
+  rank?: string;
   badges?: string[];
   phone?: string;
   location?: string;
+  availability?: boolean;
+  profileImage?: string;
+  status?: string;
+  wallet?: { balance: number; pending: number };
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (credentials: any) => Promise<void>;
-  googleLogin: (credential: string) => Promise<void>;
   register: (userData: any) => Promise<void>;
   logout: () => void;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const res = await api.get('/auth/me');
+          const res = await api.get('auth/me');
           setUser(res.data.data);
         } catch (err) {
           localStorage.removeItem('token');
@@ -46,21 +61,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (credentials: any) => {
-    const res = await api.post('/auth/login', credentials);
-    const { token, user: userData } = res.data;
-    localStorage.setItem('token', token);
-    setUser(userData);
-  };
-
-  const googleLogin = async (credential: string) => {
-    const res = await api.post('/auth/google', { credential });
+    const res = await api.post('auth/login', credentials);
     const { token, user: userData } = res.data;
     localStorage.setItem('token', token);
     setUser(userData);
   };
 
   const register = async (userData: any) => {
-    const res = await api.post('/auth/register', userData);
+    const res = await api.post('auth/register', userData);
     const { token, user: registeredUser } = res.data;
     localStorage.setItem('token', token);
     setUser(registeredUser);
@@ -72,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, googleLogin, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

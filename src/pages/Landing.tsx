@@ -39,112 +39,110 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50">
-        <div className="mx-4 mt-4">
-          <div className="glass rounded-2xl">
-            <div className="container mx-auto flex items-center justify-between h-14 px-6">
-              <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="WorkSetu Logo" className="w-8 h-8 rounded-lg shadow-sm" />
-                <span className="text-xl font-bold gradient-text" style={{ fontFamily: "var(--font-heading)" }}>WorkSetu</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={lang}
-                  onChange={(e) => setLang(e.target.value as "en" | "hi" | "mr")}
-                  className="text-sm bg-secondary text-secondary-foreground rounded-lg px-2 py-1.5 border-none outline-none cursor-pointer"
-                >
-                  <option value="en">EN</option>
-                  <option value="hi">हिंदी</option>
-                  <option value="mr">मराठी</option>
-                </select>
-                <button onClick={toggle} className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                  {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/login")} className="hidden sm:inline-flex">
-                  {t("login")}
-                </Button>
-                <Button size="sm" onClick={() => navigate("/signup")} className="gradient-primary text-primary-foreground border-0">
-                  {t("signup")}
-                </Button>
-              </div>
+      <nav className="fixed top-0 w-full z-50 bg-background/60 backdrop-blur-xl border-b border-border/10 transition-all duration-300">
+        <div className="container mx-auto flex items-center justify-between h-16 px-4 sm:px-6 md:px-8">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="WorkSetu Logo" className="w-8 h-8 rounded-lg shadow-sm" />
+            <span className="text-xl font-black text-foreground tracking-tighter" style={{ fontFamily: "var(--font-heading)" }}>WorkSetu</span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as "en" | "hi" | "mr")}
+              className="text-xs font-bold tracking-wide uppercase bg-transparent text-foreground border-none outline-none cursor-pointer"
+            >
+              <option value="en">EN</option>
+              <option value="hi">हिंदी</option>
+              <option value="mr">मराठी</option>
+            </select>
+            <div className="w-px h-4 bg-border/50 mx-1 hidden sm:block" />
+            <button onClick={toggle} className="p-2 text-foreground/70 hover:text-foreground transition-colors">
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <div className="flex items-center gap-2 pl-2 sm:pl-4">
+              <Button variant="ghost" size="sm" onClick={() => navigate("/login")} className="hidden sm:inline-flex font-bold hover:bg-foreground/5 hover:text-foreground">
+                {t("login")}
+              </Button>
+              <Button size="sm" onClick={() => navigate("/signup")} className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-full px-5">
+                {t("signup")}
+              </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero - Asymmetric Layout */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden">
-        <img src={heroBg} alt="Construction workers at sunset" className="absolute inset-0 w-full h-full object-cover" width={1920} height={1080} />
-        <div className="absolute inset-0 bg-[hsl(var(--hero-overlay)/0.7)]" />
+      {/* Hero - Cinematic Layout (Agrovision Style) */}
+      <section ref={heroRef} className="relative min-h-[100svh] flex flex-col justify-center overflow-hidden pt-20">
+        <div className="absolute inset-0 w-full h-full">
+          <img src={heroBg} alt="Construction workers" className="w-full h-full object-cover object-center" width={1920} height={1080} />
+          {/* Aesthetic layer masking mimicking farm planning reference */}
+          <div className="absolute inset-0 bg-background/20 dark:bg-background/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-transparent h-40" />
+        </div>
         
-        {/* Floating decorative elements */}
-        <motion.div
-          className="absolute top-32 right-[15%] w-72 h-72 rounded-full bg-primary/10 blur-3xl"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 6, repeat: Infinity }}
-        />
-        <motion.div
-          className="absolute bottom-20 left-[10%] w-48 h-48 rounded-full bg-accent/10 blur-3xl"
-          animate={{ scale: [1.1, 1, 1.1], opacity: [0.4, 0.2, 0.4] }}
-          transition={{ duration: 5, repeat: Infinity, delay: 1 }}
-        />
-
-        <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative z-10 w-full pt-20">
-          <div className="container mx-auto px-4 flex flex-col items-center justify-center text-center max-w-4xl min-h-[60vh]">
+        <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative z-10 w-full flex-1 flex flex-col justify-center -mt-10">
+          <div className="container mx-auto px-4 sm:px-6 flex flex-col items-center text-center max-w-5xl">
+            
+            {/* Elegant Top Badge */}
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full glass mb-8 border border-white/20 shadow-lg"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-background/90 backdrop-blur-sm border border-border/50 shadow-sm mb-8"
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
-              <span className="text-sm font-bold text-primary-foreground tracking-wide">10,000+ {t("workersRegistered")}</span>
+              <Zap size={14} className="text-primary shrink-0" />
+              <span className="text-[11px] font-black tracking-widest uppercase text-foreground/80">Intelligent Construction Setup</span>
             </motion.div>
 
+            {/* Giant Title exactly like reference */}
             <motion.h1
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.15 }}
-              className="text-5xl sm:text-6xl lg:text-[5.5rem] font-black text-primary-foreground mb-6 leading-[1.05] drop-shadow-xl"
+              transition={{ duration: 0.8, delay: 0.1 }}
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-[6rem] font-black text-foreground mb-6 leading-[1.05] tracking-tight drop-shadow-sm"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              {t("heroTitle")}
+              <span className="text-primary">{t("heroTitle").split('.')[0]}.</span>
+              <span className="text-foreground">{" " + t("heroTitle").split('.').slice(1).join('.').trim()}</span>
             </motion.h1>
             
+            {/* Descriptive Tagline */}
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.25 }}
-              className="text-xl sm:text-2xl font-medium text-primary-foreground/90 mb-12 max-w-2xl px-4 drop-shadow-md"
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-lg sm:text-xl md:text-2xl font-medium text-foreground/70 mb-10 max-w-3xl px-4 leading-relaxed"
             >
               {t("tagline")}
             </motion.p>
 
+            {/* Bold CTA Button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.35 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
               className="flex justify-center"
             >
               <Button
                 size="lg"
                 onClick={() => navigate("/signup")}
-                className="gradient-primary text-primary-foreground px-10 py-7 text-xl rounded-2xl font-bold gap-3 hover:opacity-90 transition-all hover:scale-[1.05] active:scale-[0.98] border border-white/20 shadow-2xl relative overflow-hidden group"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-10 py-7 text-xl rounded-2xl font-bold gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl relative overflow-hidden group"
               >
                 <div className="absolute inset-0 bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left ease-out duration-300" />
-                <span className="relative z-10 flex items-center gap-2">{t("getStarted")} <ArrowRight size={24} /></span>
+                <span className="relative z-10 flex items-center gap-2">{t("getStarted")} <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" /></span>
               </Button>
             </motion.div>
           </div>
         </motion.div>
 
-        {/* Scroll indicator */}
+        {/* Scroll indicator - integrated into fade */}
         <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
-          animate={{ y: [0, 10, 0] }}
+          animate={{ y: [0, 8, 0], opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
-          <ChevronDown className="text-primary-foreground/40" size={28} />
+          <ChevronDown className="text-foreground/50" size={32} />
         </motion.div>
       </section>
 

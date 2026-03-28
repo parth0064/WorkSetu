@@ -1,15 +1,49 @@
 import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, MapPin, Mail, Settings, Building, Loader2 } from "lucide-react";
+import { Phone, MapPin, Mail, Settings, Building, Loader2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState, useRef } from "react";
+import { uploadProfilePhoto } from "@/services/userService";
+import { toast } from "sonner";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 
 const ConstructorProfile = () => {
   const { t } = useLanguage();
-  const { user, loading } = useAuth();
+  const { user, loading, setUser } = useAuth();
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        toast.error("Please select an image file.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploadLoading(true);
+    try {
+        const response = await uploadProfilePhoto(formData);
+        if (response.success) {
+            toast.success("Profile photo updated successfully!");
+            if (setUser && user) {
+                setUser({ ...user, profileImage: response.data });
+            }
+        }
+    } catch (error: any) {
+        console.error("Upload Error:", error);
+        toast.error(error.response?.data?.message || "Failed to upload photo.");
+    } finally {
+        setUploadLoading(false);
+    }
+  };
 
   if (loading) return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   if (!user) return <div className="p-8 text-center text-muted-foreground">Please log in to view your profile.</div>;
@@ -30,8 +64,33 @@ const ConstructorProfile = () => {
 
       <motion.div variants={item} className="glass-card shadow-sm">
         <div className="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl shadow-xl border-4 border-background shrink-0 font-black text-white" style={{ fontFamily: "var(--font-heading)" }}>
-            {initials || "C"}
+          <div className="relative group shrink-0">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl shadow-xl border-4 border-background overflow-hidden relative font-black text-white" style={{ fontFamily: "var(--font-heading)" }}>
+              {user.profileImage ? (
+                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                initials || "C"
+              )}
+              {uploadLoading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 size={24} className="animate-spin text-white" />
+                </div>
+              )}
+            </div>
+            <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all ring-4 ring-background z-10"
+                title="Change Photo"
+            >
+                <Camera size={14} />
+            </button>
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handlePhotoUpload} 
+            />
           </div>
           <div className="flex-1 mt-2">
             <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70" style={{ fontFamily: "var(--font-heading)" }}>{user.name}</h2>

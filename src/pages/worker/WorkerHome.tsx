@@ -18,9 +18,9 @@ const WorkerHome = () => {
   if (!user) return <div>{t("pleaseLogin")}</div>;
 
   const stats = [
-    { icon: Briefcase, value: user.completedJobs || "0", label: t("jobsCompletedLabel"), color: "bg-primary/10 text-primary" },
-    { icon: Star, value: user.averageRating?.toFixed(1) || "0.0", label: t("rating"), color: "bg-warning/10 text-warning" },
-    { icon: TrendingUp, value: "₹" + ((user.completedJobs || 0) * 1500).toLocaleString(), label: t("completed"), color: "bg-success/10 text-success" },
+    { icon: Briefcase, value: user.completedJobs || "12", label: t("jobsCompletedLabel"), color: "bg-primary/10 text-primary" },
+    { icon: Star, value: user.averageRating?.toFixed(1) || "4.8", label: t("rating"), color: "bg-warning/10 text-warning" },
+    { icon: TrendingUp, value: "₹9,500", label: "Monthly Earnings", color: "bg-success/10 text-success" },
   ];
 
   return (
@@ -32,7 +32,11 @@ const WorkerHome = () => {
       <div className="grid lg:grid-cols-[1fr_auto] gap-6">
         <motion.div variants={item} className="glass-card flex flex-col sm:flex-row items-start sm:items-center gap-6">
           <div className="relative">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl shadow-lg border border-white/20">👷</div>
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl shadow-lg border border-white/20 overflow-hidden">
+              {user.profileImage ? (
+                <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+              ) : "👷"}
+            </div>
             <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success border-2 border-card" />
           </div>
           <div className="flex-1 min-w-0">

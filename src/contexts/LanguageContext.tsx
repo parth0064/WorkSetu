@@ -5,9 +5,9 @@ export type Lang = "en" | "hi" | "mr";
 const translations: Record<string, Record<Lang, string>> = {
   // General
   tagline: {
-    en: "A bridge between workers and opportunities",
-    hi: "श्रमिकों और अवसरों के बीच एक सेतु",
-    mr: "कामगार आणि संधी यांच्यातील एक सेतू",
+    en: "A robust platform helping contractors and workers build the future together.",
+    hi: "ठेकेदारों और श्रमिकों को एक साथ भविष्य बनाने में मदद करने वाला एक मजबूत मंच।",
+    mr: "कंत्राटदार आणि कामगारांना सोबत भविष्य घडवण्यात मदत करणारा एक मजबूत मंच.",
   },
   getStarted: { en: "Get Started", hi: "शुरू करें", mr: "सुरुवात करा" },
   login: { en: "Login", hi: "लॉगिन", mr: "लॉगिन" },
@@ -18,7 +18,7 @@ const translations: Record<string, Record<Lang, string>> = {
   continueGoogle: { en: "Continue with Google", hi: "Google से जारी रखें", mr: "Google सह सुरू ठेवा" },
   noAccount: { en: "Don't have an account?", hi: "खाता नहीं है?", mr: "खाते नाही?" },
   haveAccount: { en: "Already have an account?", hi: "पहले से खाता है?", mr: "आधीच खाते आहे?" },
-  heroTitle: { en: "WorkSetu", hi: "WorkSetu", mr: "WorkSetu" },
+  heroTitle: { en: "Build Smart. Hire Smart. Work Smart.", hi: "समझदारी से बनाएं। समझदारी से नियुक्त करें। समझदारी से काम करें।", mr: "शहाणपणाने बांधा. शहाणपणाने कामगार नेमा. शहाणपणाने काम करा." },
   continue: { en: "Continue", hi: "जारी रखें", mr: "पुढे चला" },
   or: { en: "OR", hi: "या", mr: "किंवा" },
   logout: { en: "Logout", hi: "लॉगआउट", mr: "लॉगआउट" },
@@ -51,9 +51,12 @@ const translations: Record<string, Record<Lang, string>> = {
   findWork: { en: "Find Work", hi: "काम खोजें", mr: "काम शोधा" },
   myWork: { en: "My Work", hi: "मेरा काम", mr: "माझे काम" },
   addWork: { en: "Add Work", hi: "काम जोड़ें", mr: "काम जोडा" },
+  myPortfolio: { en: "My Portfolio", hi: "मेरा पोर्टफोलियो", mr: "माझे पोर्टफोलिओ" },
   findWorkers: { en: "Find Workers", hi: "कामगार खोजें", mr: "कामगार शोधा" },
   projects: { en: "Projects", hi: "परियोजनाएं", mr: "प्रकल्प" },
   hireWorkers: { en: "Hire Workers", hi: "कामगार काम पर रखें", mr: "कामगार कामावर घ्या" },
+  wallet: { en: "Wallet", hi: "बटुआ", mr: "पाकीट" },
+  finances: { en: "Earnings & Expenses", hi: "कमाई और खर्च", mr: "कमाई आणि खर्च" },
 
   // Landing page
   whyWorkSetu: { en: "Why", hi: "क्यों", mr: "का" },

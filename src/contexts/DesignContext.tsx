@@ -18,9 +18,7 @@ const DesignContext = createContext<{
 export const useDesign = () => useContext(DesignContext);
 
 export const DesignProvider = ({ children }: { children: ReactNode }) => {
-  const [design, setDesign] = useState<DesignTheme>(
-    () => (localStorage.getItem("ws-design") as DesignTheme) || "amber"
-  );
+  const [design, setDesign] = useState<DesignTheme>("midnight");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-design", design);
