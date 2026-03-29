@@ -10,15 +10,33 @@ export const designThemes: Record<DesignTheme, { label: string; description: str
   editorial: { label: "Editorial Serif", description: "Elegant editorial, clean white" },
 };
 
+const VALID_THEMES: DesignTheme[] = ["amber", "midnight", "emerald", "bauhaus", "editorial"];
+
+/** Read the saved design immediately (before React renders) so fonts never flash */
+function getInitialDesign(): DesignTheme {
+  try {
+    const saved = localStorage.getItem("ws-design") as DesignTheme | null;
+    if (saved && VALID_THEMES.includes(saved)) return saved;
+  } catch {
+    // localStorage may be unavailable (private browsing, etc.)
+  }
+  return "midnight";
+}
+
+// Apply the design attribute synchronously so CSS variables (and therefore
+// --font-heading / --font-body) are correct on the very first paint.
+const initialDesign = getInitialDesign();
+document.documentElement.setAttribute("data-design", initialDesign);
+
 const DesignContext = createContext<{
   design: DesignTheme;
   setDesign: (d: DesignTheme) => void;
-}>({ design: "amber", setDesign: () => {} });
+}>({ design: initialDesign, setDesign: () => {} });
 
 export const useDesign = () => useContext(DesignContext);
 
 export const DesignProvider = ({ children }: { children: ReactNode }) => {
-  const [design, setDesign] = useState<DesignTheme>("midnight");
+  const [design, setDesign] = useState<DesignTheme>(initialDesign);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-design", design);
