@@ -68,8 +68,25 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
     return () => clearInterval(interval);
   }, [user?.id]); 
 
-  if (loading || !user) {
-    return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center shadow-xl animate-pulse">
+            <img src="/logo.png" alt="WorkSetu" className="w-8 h-8 object-cover rounded-xl" />
+          </div>
+          <div className="flex gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // navigate effect will redirect to /login
   }
 
   const unreadCount = notifications.filter(n => !n.read).length;
