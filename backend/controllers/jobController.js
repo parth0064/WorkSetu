@@ -293,6 +293,7 @@ exports.completeJob = async (req, res, next) => {
         }
 
         job.status = 'completed';
+        job.feedbackSubmitted = true;
         await job.save();
 
         // Create WorkHistory for worker
