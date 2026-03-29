@@ -11,6 +11,7 @@ import { getProjectById, getProjectApplicants, assignWorker, completeProjectDay 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import api from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
@@ -24,6 +25,7 @@ const STATUS_STYLE: Record<string, string> = {
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { refreshUser } = useAuth() as any;
   const [project, setProject] = useState<any>(null);
   const [applicants, setApplicants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,7 @@ const ProjectDetailsPage = () => {
       toast.success("🏆 Project Completed!", { description: "Remaining wages have been settled." });
       setShowCompleteModal(false);
       fetchAll();
+      if (refreshUser) refreshUser();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Completion failed");
     } finally {
@@ -111,6 +114,7 @@ const ProjectDetailsPage = () => {
       } else {
         fetchAll();
       }
+      if (refreshUser) refreshUser();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Payment failed";
       toast.error(`❌ ${msg}`);

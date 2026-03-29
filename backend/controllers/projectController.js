@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const WorkHistory = require('../models/WorkHistory');
@@ -53,10 +54,26 @@ exports.createProject = async (req, res) => {
 // @access  Public
 exports.getProjects = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         const projects = await Project.find({ isPublicPost: true, status: { $ne: 'completed' } })
             .populate('createdBy', 'name location profileImage')
-            .sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: projects.length, data: projects });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+        
+        const total = await Project.countDocuments({ isPublicPost: true, status: { $ne: 'completed' } });
+
+        res.status(200).json({ 
+            success: true, 
+            count: projects.length, 
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            data: projects 
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
@@ -67,10 +84,26 @@ exports.getProjects = async (req, res) => {
 // @access  Private
 exports.getAllProjects = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         const projects = await Project.find({ isPublicPost: true })
             .populate('createdBy', 'name location profileImage')
-            .sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: projects.length, data: projects });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const total = await Project.countDocuments({ isPublicPost: true });
+
+        res.status(200).json({ 
+            success: true, 
+            count: projects.length, 
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            data: projects 
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
@@ -81,10 +114,26 @@ exports.getAllProjects = async (req, res) => {
 // @access  Private (Contractor Only)
 exports.getMyProjects = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         const projects = await Project.find({ createdBy: req.user.id })
             .populate('assignedWorkers', 'name profileImage skills averageRating')
-            .sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: projects.length, data: projects });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+            
+        const total = await Project.countDocuments({ createdBy: req.user.id });
+
+        res.status(200).json({ 
+            success: true, 
+            count: projects.length, 
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            data: projects 
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
@@ -95,11 +144,27 @@ exports.getMyProjects = async (req, res) => {
 // @access  Private (Worker Only)
 exports.getAssignedProjects = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         const projects = await Project.find({ assignedWorkers: req.user.id })
             .populate('createdBy', 'name profileImage')
             .populate('assignedWorkers', 'name profileImage skills')
-            .sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: projects.length, data: projects });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const total = await Project.countDocuments({ assignedWorkers: req.user.id });
+
+        res.status(200).json({ 
+            success: true, 
+            count: projects.length, 
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            data: projects 
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
@@ -227,20 +292,28 @@ exports.requestWorker = async (req, res) => {
 // @route   POST /api/projects/complete
 // @access  Private (Contractor Only)
 exports.completeProject = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const { projectId, rating, comment } = req.body;
-        const project = await Project.findById(projectId).populate('assignedWorkers');
+        const project = await Project.findById(projectId).populate('assignedWorkers').session(session);
 
         if (!project) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({ success: false, message: 'Project not found' });
         }
 
         const ownerId = project.createdBy?.toString();
         if (ownerId !== req.user.id) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
 
         if (project.status === 'completed') {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({ success: false, message: 'Project is already completed' });
         }
 
@@ -251,15 +324,15 @@ exports.completeProject = async (req, res) => {
         const totalPayout = remainingDays * dailyWage * assignedWorkersCount;
 
         // Perform wallet transfers
-        const contractorUser = await User.findById(req.user.id);
+        const contractorUser = await User.findById(req.user.id).session(session);
         
         // Deduction from contractor
         contractorUser.wallet.balance -= totalPayout;
-        await contractorUser.save();
+        await contractorUser.save({ session });
 
         // Credit each worker
         for (const workerId of project.assignedWorkers) {
-            const workerUser = await User.findById(workerId);
+            const workerUser = await User.findById(workerId._id || workerId).session(session);
             if (!workerUser) continue;
             
             const workerPayout = remainingDays * dailyWage;
@@ -271,23 +344,23 @@ exports.completeProject = async (req, res) => {
                 workerUser.averageRating = ((workerUser.averageRating * (workerUser.completedJobs - 1)) + rating) / workerUser.completedJobs;
             }
             
-            await workerUser.save();
+            await workerUser.save({ session });
 
             // Transaction for worker
-            await Transaction.create({
-                userId: workerId,
+            await Transaction.create([{
+                userId: workerUser._id,
                 amount: workerPayout,
                 type: 'credit',
                 status: 'completed',
                 relatedTo: project._id,
                 onModel: 'Project',
                 description: `Final payout for project: ${project.title}`
-            });
+            }], { session });
         }
 
         // Transaction for contractor
         if (totalPayout > 0) {
-            await Transaction.create({
+            await Transaction.create([{
                 userId: req.user.id,
                 amount: totalPayout,
                 type: 'debit',
@@ -295,13 +368,16 @@ exports.completeProject = async (req, res) => {
                 relatedTo: project._id,
                 onModel: 'Project',
                 description: `Settlement for project completion: ${project.title}`
-            });
+            }], { session });
         }
 
         // Update Project status
         project.status = 'completed';
         project.completedDays = project.totalDays;
-        await project.save();
+        await project.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
 
         res.status(200).json({
             success: true,
@@ -317,6 +393,8 @@ exports.completeProject = async (req, res) => {
         });
 
     } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         console.error("Completion error:", error);
         res.status(400).json({ success: false, message: error.message });
     }
@@ -326,65 +404,82 @@ exports.completeProject = async (req, res) => {
 // @route   POST /api/projects/:id/complete-day
 // @access  Private (Contractor Only)
 exports.completeProjectDay = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const { presentWorkerIds } = req.body;
-        const project = await Project.findById(req.params.id);
+        const project = await Project.findById(req.params.id).session(session);
 
         if (!project) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({ success: false, message: 'Project not found' });
         }
 
         const ownerId = project.createdBy?.toString();
         if (ownerId !== req.user.id) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(401).json({ success: false, message: 'Not authorized' });
         }
 
         if (project.status === 'completed') {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({ success: false, message: 'Project is already completed' });
         }
 
         if (!presentWorkerIds || presentWorkerIds.length === 0) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({ success: false, message: 'No workers selected for today' });
         }
 
         const today = new Date().toISOString().split('T')[0];
         const dailyWage = project.wagePerDay || 0;
-        const totalPayout = dailyWage * presentWorkerIds.length;
 
-        // Ensure every workerId is a valid string (handle populated objects)
-        const workerIdStrings = presentWorkerIds.map(wid =>
-            typeof wid === 'object' ? wid._id?.toString() || wid.toString() : wid
+        // Ensure every workerId is a valid string
+        const reqWorkerIdStrings = presentWorkerIds.map(wid => 
+            typeof wid === 'object' ? wid._id?.toString() || wid.toString() : String(wid)
         );
 
-        // Check if any of these workers are already paid for today (skip duplicates gracefully)
-        const alreadyPaidWorkers = [];
+        // Security check: Only pay workers that are actually assigned to the project!
+        const assignedWorkerIdStrings = project.assignedWorkers.map(wid => wid.toString());
+        const validWorkerIds = reqWorkerIdStrings.filter(wid => assignedWorkerIdStrings.includes(wid));
+
+        if (validWorkerIds.length === 0) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ success: false, message: 'None of the provided workers are assigned to this project' });
+        }
+
+        // Check already paid today to avoid unnecessary errors
         const workersToPay = [];
-        for (const workerId of workerIdStrings) {
-            const existingLog = await DailyWorkLog.findOne({ workerId, projectId: project._id, date: today });
-            if (existingLog) {
-                alreadyPaidWorkers.push(workerId);
-            } else {
+        for (const workerId of validWorkerIds) {
+            const existingLog = await DailyWorkLog.findOne({ workerId, projectId: project._id, date: today }).session(session);
+            if (!existingLog) {
                 workersToPay.push(workerId);
             }
         }
 
         if (workersToPay.length === 0) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({ 
                 success: false, 
-                message: `This worker has already been paid for today (${today}). You can only pay once per day per worker.`
+                message: `The selected worker(s) have already been paid for today (${today}).`
             });
         }
 
-        // Calculate actual payout for workers not yet paid today
         const actualPayout = dailyWage * workersToPay.length;
 
-        // Deduct from contractor (allow the payment to go through even if balance goes negative - admin can top up)
+        // Deduct from contractor
         await User.findByIdAndUpdate(req.user.id, {
             $inc: { 'wallet.balance': -actualPayout }
-        });
+        }, { session });
 
         if (actualPayout > 0) {
-            await Transaction.create({
+            await Transaction.create([{
                 userId: req.user.id,
                 amount: actualPayout,
                 type: 'debit',
@@ -392,27 +487,27 @@ exports.completeProjectDay = async (req, res) => {
                 relatedTo: project._id,
                 onModel: 'Project',
                 description: `Daily wage payout for ${workersToPay.length} worker(s) on project: ${project.title} (${today})`
-            });
+            }], { session });
         }
 
-        // Credit to each worker not yet paid today
+        // Credit workers
         for (const workerId of workersToPay) {
-            const workerExists = await User.exists({ _id: workerId });
+            const workerExists = await User.exists({ _id: workerId }).session(session);
             if (!workerExists) continue;
 
             await User.findByIdAndUpdate(workerId, {
                 $inc: { 'wallet.balance': dailyWage }
-            });
+            }, { session });
 
-            await DailyWorkLog.create({
+            await DailyWorkLog.create([{
                 workerId,
                 projectId: project._id,
                 date: today,
                 wage: dailyWage,
                 status: 'credited'
-            });
+            }], { session });
 
-            await Transaction.create({
+            await Transaction.create([{
                 userId: workerId,
                 amount: dailyWage,
                 type: 'credit',
@@ -420,18 +515,22 @@ exports.completeProjectDay = async (req, res) => {
                 relatedTo: project._id,
                 onModel: 'Project',
                 description: `Daily wage for project: ${project.title} (${today})`
-            });
+            }], { session });
         }
 
         // Progress update
         const newCompletedDays = project.completedDays + 1;
         const newStatus = (newCompletedDays >= project.totalDays) ? 'completed' : project.status;
 
+        // Ensure session is used for updating project!
         const updatedProject = await Project.findByIdAndUpdate(
             project._id,
             { $set: { completedDays: newCompletedDays, status: newStatus } },
-            { new: true }
+            { new: true, session }
         ).populate('assignedWorkers', 'name profileImage skills averageRating');
+
+        await session.commitTransaction();
+        session.endSession();
 
         res.status(200).json({
             success: true,
@@ -440,8 +539,15 @@ exports.completeProjectDay = async (req, res) => {
         });
 
     } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         console.error("Complete Day error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        
+        // Handle MongoDB Duplicate Key Error explicitly
+        if (error.code === 11000) {
+            return res.status(400).json({ success: false, message: 'Duplicate payment detected. A worker was already paid for today.' });
+        }
+        res.status(500).json({ success: false, message: "A server error prevented the transaction. " + error.message });
     }
 };
 

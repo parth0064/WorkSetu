@@ -42,6 +42,8 @@ type Intent =
   | "find_work"
   | "my_work"
   | "earnings"
+  | "wallet"
+  | "apply_job_idx"
   | "projects"
   | "home"
   | "profile";
@@ -160,6 +162,21 @@ const R = {
     hi: () => "Pehle se apply kiya hai ya application fail ho gayi.",
     mr: () => "Aadheech apply kele aahe kiva application fail zali.",
   },
+  wallet: {
+    en: () => "Opening your wallet.",
+    hi: () => "Aapka wallet khol raha hoon.",
+    mr: () => "Tumche wallet ughdat aahe.",
+  },
+  applyingJob: {
+    en: (num: number) => `Applying for job ${num}...`,
+    hi: (num: number) => `Job number ${num} ke liye apply kar raha hoon...`,
+    mr: (num: number) => `Job number ${num} kariyta lagoo karat aahe...`,
+  },
+  invalidJobIndex: {
+    en: () => "Sorry, I couldn't find a job with that number.",
+    hi: () => "Maaf kijiye, us number ka kaam nahi mila.",
+    mr: () => "Maaf kara, tya number che kaam sapadle nahi.",
+  },
   fallback: {
     en: () => "Sorry, I didn't catch that. Try: find work, my earnings, or show nearby work.",
     hi: () => "Samajh nahi aaya. Bolein: 'kaam dikhao', 'meri kamai', ya 'paas mein kaam'.",
@@ -238,6 +255,20 @@ function detectIntent(raw: string): Intent | null {
     "konte kaam", "konti naukri",
   ];
   if (myWorkKw.some(kw => t.includes(kw))) return "my_work";
+
+  // WALLET
+  const walletKw = [
+    "wallet", "batua", "khata", "paishachi pishvi", "show wallet", "open wallet",
+    "mera wallet", "maza wallet", "wallet dakha", "wallet ughda", "aple khate", "account balance"
+  ];
+  if (walletKw.some(kw => t.includes(kw))) return "wallet";
+
+  // APPLY JOB INDEX
+  const applyIdxKw = [
+    "apply", "lagu kara", "lagoo kara", "arja", "pahila", "dusra", "tisra", "chautha",
+    "first", "second", "third", "fourth", "ek", "don", "teen", "char", "do", "one", "two", "three", "four", "1", "2", "3", "4"
+  ];
+  if ((t.includes("apply") || t.includes("lagu") || t.includes("arja") || t.includes("lagoo")) && applyIdxKw.some(kw => t.includes(kw))) return "apply_job_idx";
 
   // PROJECTS / PORTFOLIO
   const projectsKw = [
@@ -450,7 +481,7 @@ export function useVoiceAssistant(): VoiceAssistantHook {
       setResponse(msg);
       setState("speaking");
       speak(msg, lang, () => { if (mountedRef.current) setState("idle"); });
-      navigate(`${WORKER_BASE}/finances`);
+      navigate(`${WORKER_BASE}/wallet`);
     } catch {
       const msg = r(R.earningsError, lang);
       setResponse(msg);
@@ -462,8 +493,7 @@ export function useVoiceAssistant(): VoiceAssistantHook {
   // ── Command processor ─────────────────────────────────────────────────────
   const processCommand = useCallback(async (text: string) => {
     setState("processing");
-    setJobList([]);
-    setEarnings(null);
+    // We NO LONGER clear `jobList` and `earnings` here so the assistant keeps context!
 
     const lang = detectLang(text);
     setDetectedLang(lang);
@@ -492,9 +522,40 @@ export function useVoiceAssistant(): VoiceAssistantHook {
         reply(r(R.myWork, lang), `${WORKER_BASE}/my-work`);
         return;
 
+      case "wallet":
+        reply(r(R.wallet, lang), `${WORKER_BASE}/wallet`);
+        return;
+
       case "earnings":
         await handleEarnings(lang);
         return;
+
+      case "apply_job_idx": {
+        const words = text.split(/\s+/);
+        let idx = -1;
+        const map: Record<string, number> = {
+          "first": 0, "1st": 0, "one": 0, "1": 0, "ek": 0, "pahila": 0, "pahile": 0,
+          "second": 1, "2nd": 1, "two": 1, "2": 1, "do": 1, "don": 1, "dusra": 1, "dusre": 1,
+          "third": 2, "3rd": 2, "three": 2, "3": 2, "teen": 2, "tin": 2, "tisra": 2, "tisre": 2,
+          "fourth": 3, "4th": 3, "four": 3, "4": 3, "char": 3, "chautha": 3, "chauthe": 3
+        };
+        for (const w of words) {
+           if (map[w] !== undefined) { idx = map[w]; break; }
+        }
+
+        // Default to first job if only 1 job exists and no specific number was parsed
+        if (idx === -1 && jobList.length === 1) idx = 0;
+        
+        if (idx !== -1 && idx < jobList.length) {
+            const job = jobList[idx];
+            setResponse(r(R.applyingJob, lang, idx + 1));
+            setState("speaking");
+            await applyToJob(job._id);
+        } else {
+            reply(r(R.invalidJobIndex, lang));
+        }
+        return;
+      }
 
       case "projects":
         reply(r(R.projects, lang), `${WORKER_BASE}/portfolio`);
@@ -511,7 +572,7 @@ export function useVoiceAssistant(): VoiceAssistantHook {
       default:
         reply(r(R.fallback, lang));
     }
-  }, [handleNearbyWork, handleFindWork, handleEarnings, navigate]);
+  }, [handleNearbyWork, handleFindWork, handleEarnings, navigate, jobList, applyToJob]);
 
   // ── Start listening ───────────────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -535,10 +596,7 @@ export function useVoiceAssistant(): VoiceAssistantHook {
     recognition.lang = "en-IN";
 
     setTranscript("");
-    setResponse("");
-    setJobCount(null);
-    setJobList([]);
-    setEarnings(null);
+    // Do NOT wipe out context variables here so follow-up commands (like apply) work!
     setState("listening");
 
     recognition.onresult = (event: any) => {

@@ -202,34 +202,43 @@ const WalletPage = () => {
                             <TabsTrigger value="credit">Credits</TabsTrigger>
                             <TabsTrigger value="debit">Debits</TabsTrigger>
                         </TabsList>
-                        
-                        <div className="space-y-4">
-                            {transactions.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground">No transactions found</div>
-                            ) : (
-                                transactions.map((tx: any) => (
-                                    <div key={tx._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-2 rounded-full ${tx.type === 'credit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                                {tx.type === 'credit' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
-                                            </div>
-                                            <div>
-                                                <div className="font-medium">{tx.description}</div>
-                                                <div className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleDateString()} at {new Date(tx.createdAt).toLocaleTimeString()}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className={`font-bold ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {tx.type === 'credit' ? '+' : '-'}₹{Math.abs(tx.amount).toLocaleString()}
-                                            </div>
-                                            <Badge variant={tx.status === 'completed' ? 'secondary' : 'outline'}>
-                                                {tx.status}
-                                            </Badge>
-                                        </div>
+
+                        {['all', 'credit', 'debit'].map((tab) => {
+                            const filtered = tab === 'all'
+                                ? transactions
+                                : transactions.filter((tx: any) => tx.type === tab);
+                            return (
+                                <TabsContent key={tab} value={tab}>
+                                    <div className="space-y-4">
+                                        {filtered.length === 0 ? (
+                                            <div className="text-center py-12 text-muted-foreground">No transactions found</div>
+                                        ) : (
+                                            filtered.map((tx: any) => (
+                                                <div key={tx._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`p-2 rounded-full ${tx.type === 'credit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                                            {tx.type === 'credit' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-medium">{tx.description}</div>
+                                                            <div className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleDateString()} at {new Date(tx.createdAt).toLocaleTimeString()}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className={`font-bold ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {tx.type === 'credit' ? '+' : '-'}₹{Math.abs(tx.amount).toLocaleString()}
+                                                        </div>
+                                                        <Badge variant={tx.status === 'completed' ? 'secondary' : 'outline'}>
+                                                            {tx.status}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                ))
-                            )}
-                        </div>
+                                </TabsContent>
+                            );
+                        })}
                     </Tabs>
                 </CardContent>
             </Card>

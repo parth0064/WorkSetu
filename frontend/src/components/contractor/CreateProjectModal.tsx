@@ -87,7 +87,7 @@ const CreateProjectModal = ({ open, onClose, onCreated }: Props) => {
       setCreatedProject(res.data);
       setStep(2);
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create project");
+      toast.error(err?.response?.data?.message || err?.message || "Failed to create project");
     } finally {
       setSaving(false);
     }
@@ -139,7 +139,7 @@ const CreateProjectModal = ({ open, onClose, onCreated }: Props) => {
       setRequestedWorkers(prev => [...prev, workerId]);
       toast.success(`Request sent to ${workerName}!`);
     } catch (err: any) {
-      toast.error(err?.message || "Request failed");
+      toast.error(err?.response?.data?.message || err?.message || "Request failed");
     } finally {
       setSendingTo(null);
     }

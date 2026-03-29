@@ -18,10 +18,24 @@ export interface PortfolioEntry {
 export type ExperienceLevel = 'Beginner' | 'Intermediate' | 'Pro';
 
 export const addPortfolioEntry = async (formData: FormData) => {
-    const response = await api.post('/portfolio', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+    const token = localStorage.getItem('token');
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    
+    // Using native fetch bypasses Axios' instance header bugs with FormData payloads
+    const response = await fetch(`${API_URL}/portfolio`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+            // DO NOT set Content-Type here, let the browser define the boundary automatically!
+        },
+        body: formData
     });
-    return response.data;
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw { response: { data } }; // Mocks Axios error throwing shape
+    }
+    return data;
 };
 
 export const getMyPortfolio = async () => {

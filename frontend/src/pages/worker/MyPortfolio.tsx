@@ -69,6 +69,45 @@ const MyPortfolio = () => {
         }
     };
 
+    const compressImage = (file: File): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new window.Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1200;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error("Compression failed"));
+                    }, 'image/jpeg', 0.8);
+                };
+            };
+            reader.onerror = error => reject(error);
+        });
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []).slice(0, 5);
         setSelectedFiles(files);
@@ -83,7 +122,10 @@ const MyPortfolio = () => {
         try {
             const formData = new FormData();
             Object.entries(form).forEach(([k, v]) => formData.append(k, v));
-            selectedFiles.forEach(f => formData.append('images', f));
+            
+            // Automatically compress all high-res photos to prevent 500 payload errors
+            const compressedFiles = await Promise.all(selectedFiles.map(compressImage));
+            compressedFiles.forEach(f => formData.append('images', f));
 
             const res = await addPortfolioEntry(formData);
             toast.success("Work added to portfolio! 🎉");
@@ -92,7 +134,7 @@ const MyPortfolio = () => {
             setShowModal(false);
             resetForm();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || "Failed to add entry");
+            toast.error(err?.response?.data?.error || err?.response?.data?.message || err.message || "Failed to add entry");
         } finally {
             setSubmitting(false);
         }

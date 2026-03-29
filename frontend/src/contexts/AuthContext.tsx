@@ -6,7 +6,7 @@ interface User {
   _id?: string;       // Mongo also sends _id; alias of id
   name: string;
   email: string;
-  role: 'worker' | 'user' | 'contractor';
+  role: 'worker' | 'client' | 'contractor';
   language?: string;
   skills?: string[];
   completedJobs?: number;
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const res = await api.get('auth/me');
+          const res = await api.get('/auth/me');
           setUser(res.data.data);
         } catch (err) {
           localStorage.removeItem('token');
@@ -62,14 +62,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (credentials: any) => {
-    const res = await api.post('auth/login', credentials);
+    const res = await api.post('/auth/login', credentials);
     const { token, user: userData } = res.data;
     localStorage.setItem('token', token);
     setUser(userData);
   };
 
   const register = async (userData: any) => {
-    const res = await api.post('auth/register', userData);
+    const res = await api.post('/auth/register', userData);
     const { token, user: registeredUser } = res.data;
     localStorage.setItem('token', token);
     setUser(registeredUser);
@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
-      const res = await api.get('auth/me');
+      const res = await api.get('/auth/me');
       setUser(res.data.data);
     } catch (err) {
       console.error('Failed to refresh user', err);

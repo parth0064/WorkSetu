@@ -45,6 +45,7 @@ const FindWorkers = () => {
   const [search, setSearch] = useState("");
   const [skillFilter, setSkillFilter] = useState("All");
   const [ratingFilter, setRatingFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("Default");
 
   useEffect(() => {
     const fetchWorkers = async () => {
@@ -83,8 +84,15 @@ const FindWorkers = () => {
       const minRating = ratingFilter === "4+" ? 4 : 3;
       result = result.filter((w) => (w.averageRating || 0) >= minRating);
     }
+    
+    // Sort logic
+    if (sortBy === "Hype") {
+      result = result.filter((w) => (w.hype || 0) > 0);
+      result.sort((a, b) => (b.hype || 0) - (a.hype || 0));
+    }
+    
     setFiltered(result);
-  }, [search, skillFilter, ratingFilter, workers]);
+  }, [search, skillFilter, ratingFilter, sortBy, workers]);
 
   const handleHireWorker = (worker: any) => {
     // Navigate to Post Job page with worker pre-selected
@@ -141,6 +149,15 @@ const FindWorkers = () => {
           <option value="All">Any Rating</option>
           <option value="4+">4+ Stars</option>
           <option value="3+">3+ Stars</option>
+        </select>
+
+        <select 
+          value={sortBy} 
+          onChange={(e) => setSortBy(e.target.value)}
+          className="h-9 px-3 w-36 rounded-lg border border-border bg-background text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
+          <option value="Default">Sort By</option>
+          <option value="Hype">Most Hyped First</option>
         </select>
       </motion.div>
 

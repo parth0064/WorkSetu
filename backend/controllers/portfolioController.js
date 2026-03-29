@@ -19,8 +19,10 @@ exports.addPortfolioEntry = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Title is required' });
         }
 
-        // Collect uploaded image URLs from multer-cloudinary
-        const images = req.files ? req.files.map(f => f.path) : [];
+        // Convert uploaded buffers to base64 data URLs (no Cloudinary needed)
+        const images = req.files
+            ? req.files.map(f => `data:${f.mimetype};base64,${f.buffer.toString('base64')}`)
+            : [];
 
         const entry = await Portfolio.create({
             workerId: req.user.id,

@@ -24,7 +24,7 @@ const Login = () => {
         name: "",
         email: "",
         password: "",
-        role: "user",
+        role: "client",
         phone: "",
         location: ""
     });
@@ -173,7 +173,7 @@ const Login = () => {
                                                 onChange={(e) => setFormData({...formData, role: e.target.value})}
                                                 className="w-full h-12 rounded-xl bg-background/50 backdrop-blur-sm border border-border/50 focus:ring-primary/50 transition-all px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
                                             >
-                                                <option value="user">Homeowner / Client</option>
+                                                <option value="client">Homeowner / Client</option>
                                                 <option value="worker">Worker</option>
                                                 <option value="contractor">Contractor</option>
                                             </select>

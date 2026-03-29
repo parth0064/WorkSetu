@@ -300,16 +300,7 @@ const WorkerProfile = () => {
             </div>
         </div>
 
-        <div className="p-4 bg-secondary/50 border border-border/40 rounded-2xl mb-4">
-            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">How Rank is Calculated</h4>
-            <p className="text-sm font-medium">
-                Final Score is determined by the community: <br />
-                <span className="bg-secondary px-2 py-0.5 rounded text-foreground inline-block mt-2 font-mono text-xs">Score = (Jobs × 2) + (Hype × 3) + Rating Average</span>
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-                Clients can "Hype" workers they love, and extra points are awarded for finishing jobs before the deadline.
-            </p>
-        </div>
+
       </motion.div>
 
       {/* ── Portfolio Preview ──────────────────────────────────────────────── */}

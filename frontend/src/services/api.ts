@@ -7,7 +7,7 @@ const api = axios.create({
   },
 });
 
-// Add a request interceptor to include the JWT token
+// Attach JWT token to every request
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -17,6 +17,23 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Auto-clear stale/wrong-role tokens on 401/403 and redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
+      // Clear any stale token that caused the role mismatch
+      localStorage.removeItem('token');
+      // Only redirect if not already on /login or /signup
+      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/signup')) {
+        window.location.href = '/login';
+      }
+    }
     return Promise.reject(error);
   }
 );

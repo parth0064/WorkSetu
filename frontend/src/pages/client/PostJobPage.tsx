@@ -63,36 +63,48 @@ const PostJobPage = () => {
         const lng = position.coords.longitude;
         const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-        if (!API_KEY) {
-          // No API key — store coords with generic address label
-          setGpsLocation({ address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
-          setGpsLoading(false);
-          toast.success("GPS location captured (no reverse-geocode key).");
-          return;
-        }
+        let address = "";
 
-        try {
-          const res = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}`
-          );
-          const data = await res.json();
-
-          if (data.status === "OK" && data.results.length > 0) {
-            const address = data.results[0].formatted_address;
-            setGpsLocation({ address, lat, lng });
-            toast.success("Location fetched!", { description: address });
-          } else {
-            // Coords captured but geocode failed — still usable for map
-            setGpsLocation({ address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
-            toast.info("Location captured. Address lookup failed — using coordinates.");
+        // 1. Try Google Maps if API key is present
+        if (API_KEY) {
+          try {
+            const res = await fetch(
+              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}`
+            );
+            const data = await res.json();
+            if (data.status === "OK" && data.results.length > 0) {
+              address = data.results[0].formatted_address;
+            }
+          } catch (err) {
+            console.warn("Google Maps geocoding failed, falling back to OSM", err);
           }
-        } catch {
-          // Network error during reverse-geocode — still have coords
-          setGpsLocation({ address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
-          toast.info("GPS captured but address not resolved. Coordinates saved.");
-        } finally {
-          setGpsLoading(false);
         }
+
+        // 2. Fallback to OpenStreetMap (Nominatim) free API
+        if (!address) {
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+            );
+            const data = await res.json();
+            if (data && data.display_name) {
+              address = data.display_name;
+            }
+          } catch (err) {
+            console.warn("OSM Geocoding failed", err);
+          }
+        }
+
+        if (address) {
+          setGpsLocation({ address, lat, lng });
+          toast.success("Location fetched!", { description: address });
+        } else {
+          // Both failed, fallback to coordinates
+          setGpsLocation({ address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
+          toast.info("Location captured. Address lookup failed — using coordinates.");
+        }
+        
+        setGpsLoading(false);
       },
       (err) => {
         setGpsLoading(false);
