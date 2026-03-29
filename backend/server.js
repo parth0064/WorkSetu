@@ -66,22 +66,6 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Serve frontend in production or if dist exists
-const path = require('path');
-const frontendPath = path.join(__dirname, '../frontend/dist');
-
-// Check if frontend build exists, if so serve it
-app.use(express.static(frontendPath));
-
-// Catch-all route for SPA (React Router)
-app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
-        if (err) {
-            res.status(500).send("Frontend build not found. Please run 'npm run build' in the frontend directory.");
-        }
-    });
-});
-
 
 // Start the Application
 const PORT = process.env.PORT || 5000;
