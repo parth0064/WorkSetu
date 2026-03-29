@@ -30,9 +30,9 @@ api.interceptors.response.use(
       // Clear any stale token that caused the role mismatch
       localStorage.removeItem('token');
       // Only redirect if not already on /login or /signup
-      const currentHash = window.location.hash;
-      if (!currentHash.startsWith('#/login') && !currentHash.startsWith('#/signup')) {
-        window.location.href = '#/login';
+      const currentPath = window.location.pathname;
+      if (!currentPath.startsWith('/login') && !currentPath.startsWith('/signup')) {
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

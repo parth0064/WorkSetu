@@ -39,8 +39,8 @@ const FindWork = () => {
   const fetchJobData = async () => {
     try {
       const [jobsRes, requestsRes] = await Promise.all([getJobs(), getJobRequests()]);
-      setJobs(jobsRes.data);
-      setRequests(requestsRes.data);
+      setJobs(jobsRes?.data || []);
+      setRequests(requestsRes?.data || []);
     } catch (err) {
       toast.error("Failed to load jobs");
     } finally {
@@ -51,8 +51,8 @@ const FindWork = () => {
   const fetchProjectData = async () => {
     try {
       const [projectsRes, appsRes] = await Promise.all([getAllProjects(), getMyApplications()]);
-      setProjects(projectsRes.data);
-      setMyApplications(appsRes.data);
+      setProjects(projectsRes?.data || []);
+      setMyApplications(appsRes?.data || []);
     } catch (err) {
       console.error("Error fetching projects:", err);
     } finally {
@@ -65,7 +65,7 @@ const FindWork = () => {
     fetchProjectData();
   }, []);
 
-  const filteredJobs = jobs.filter(j => {
+  const filteredJobs = (jobs || []).filter(j => {
     const term = searchTerm.toLowerCase();
     const locationStr = typeof j.location === 'object'
       ? (j.location?.address || '')
@@ -77,7 +77,7 @@ const FindWork = () => {
     );
   });
 
-  const filteredProjects = projects.filter(p =>
+  const filteredProjects = (projects || []).filter(p =>
     p.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
     p.requiredSkills?.some((s: string) => s.toLowerCase().includes(projectSearch.toLowerCase()))
   );

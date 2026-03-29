@@ -253,7 +253,7 @@ const ProjectDetailsPage = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {project.assignedWorkers.map((w: any) => {
+                {(project.assignedWorkers || []).map((w: any) => {
                   const isStarted = startedShifts.includes(w._id);
                   const isPaying = payingWorkerId === w._id;
 

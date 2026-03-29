@@ -205,7 +205,7 @@ const WorkerProjectDetail = () => {
         <h3 className="font-black text-lg flex items-center gap-2"><Users className="text-primary" size={20} /> Team Members</h3>
         {project.assignedWorkers?.length > 0 ? (
           <div className="space-y-2">
-            {project.assignedWorkers.map((w: any) => (
+            {(project.assignedWorkers || []).map((w: any) => (
               <div key={w._id} className="glass-card flex items-center gap-3 p-4">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
                   {w.profileImage ? <img src={w.profileImage} alt={w.name} className="w-full h-full object-cover" /> : w.name?.[0] || "W"}

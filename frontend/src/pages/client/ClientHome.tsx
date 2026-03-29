@@ -21,7 +21,7 @@ const ClientHome = () => {
     const fetchMyJobs = async () => {
       try {
         const res = await api.get('/jobs/my');
-        setJobs(res.data.data);
+        setJobs(res?.data?.data || []);
       } catch (err) {
         console.error("Error fetching my jobs:", err);
       } finally {
@@ -31,9 +31,9 @@ const ClientHome = () => {
     fetchMyJobs();
   }, []);
 
-  const activeJobs = jobs.filter(j => j.status === 'open' || j.status === 'in-progress').length;
-  const completedJobs = jobs.filter(j => j.status === 'completed').length;
-  const totalApplicants = jobs.reduce((sum, j) => sum + (j.applicants?.length || 0), 0);
+  const activeJobs = (jobs || []).filter(j => j?.status === 'open' || j?.status === 'in-progress').length;
+  const completedJobs = (jobs || []).filter(j => j?.status === 'completed').length;
+  const totalApplicants = (jobs || []).reduce((sum, j) => sum + (j?.applicants?.length || 0), 0);
 
   const statsData = [
     { icon: Briefcase, label: t("activeJobs"), value: activeJobs.toString(), color: "bg-primary/10 text-primary" },

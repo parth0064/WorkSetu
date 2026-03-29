@@ -26,7 +26,7 @@ const ProjectsList = () => {
   const fetchProjects = async () => {
     try {
       const res = await getMyProjects();
-      setProjects(res.data);
+      setProjects(res?.data || []);
     } catch {
       toast.error("Failed to load projects");
     } finally {
@@ -66,7 +66,7 @@ const ProjectsList = () => {
               My Projects
             </h2>
             <p className="text-muted-foreground text-sm font-medium">
-              {projects.length} project{projects.length !== 1 ? "s" : ""} total
+              {(projects || []).length} project{(projects || []).length !== 1 ? "s" : ""} total
             </p>
           </motion.div>
           <motion.div variants={item}>
@@ -84,7 +84,7 @@ const ProjectsList = () => {
           <div className="h-64 flex items-center justify-center">
             <Loader2 className="animate-spin text-primary" size={32} />
           </div>
-        ) : projects.length === 0 ? (
+        ) : (projects || []).length === 0 ? (
           <motion.div variants={item} className="glass-card py-20 text-center border-dashed">
             <Building2 size={48} className="mx-auto mb-4 opacity-20" />
             <p className="font-bold text-lg text-muted-foreground">No projects yet.</p>
@@ -96,7 +96,7 @@ const ProjectsList = () => {
         ) : (
           <motion.div variants={item} className="grid lg:grid-cols-2 gap-6">
             <AnimatePresence>
-              {projects.map((p) => (
+              {(projects || []).map((p) => (
                 <motion.div
                   key={p._id}
                   layout
